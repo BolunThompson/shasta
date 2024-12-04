@@ -1,9 +1,11 @@
-
+from shasta import ast_node
 from .ast_node import *
 from libbash.bash_command import *
 from .subst import expand_word
 
 IN_FUNCTION = False
+
+ast_node.BASH_MODE = True
 
 def is_empty_command(node: AstNode) -> bool:
     return node.NodeName == "CommandNode" and \
@@ -174,8 +176,7 @@ def to_function_def_node(node: Command) -> DefunNode:
     node = DefunNode(
         line_number=line_number,
         name=to_arg_char(name),
-        body=to_ast_node(body),
-        bash_mode=True)
+        body=to_ast_node(body))
     IN_FUNCTION = False
     return node
 

@@ -1,5 +1,8 @@
-
+from shasta import ast_node
 from .ast_node import *
+
+ast_node.BASH_MODE = False
+
 
 def to_ast_node(obj) -> AstNode:
     k, v = obj
