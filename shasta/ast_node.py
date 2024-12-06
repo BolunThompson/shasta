@@ -5,22 +5,26 @@ from json import JSONEncoder
 from .print_lib import *
 from enum import Enum
 
+from typing import Union, Tuple, ClassVar, Optional, TypeAlias, Literal, List
+
 # semi-bad practice but avoids giving every node a bash_mode field
 BASH_MODE = False
 
+FdType: TypeAlias = Union[Tuple[Literal['var'], List["ArgChar"]], Tuple[Literal['fixed'], int]]
+
 class AstNode(metaclass=abc.ABCMeta):
-    NodeName = 'None'
+    NodeName: ClassVar[str] = 'None'
 
     @abc.abstractmethod
-    def json(self):
-        return
+    def json(self) -> list:
+        pass
     
     @abc.abstractmethod
     def pretty(self) -> str:
         """
         Renders an AST back in shell syntax. 
         """
-        return
+        pass
 
 class BashNode:
     """
@@ -32,11 +36,11 @@ class Command(AstNode):
     pass
 
 class CustomJSONEncoder(JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, AstNode):
-            return obj.json()
+    def default(self, o):
+        if isinstance(o, AstNode):
+            return o.json()
         # Let the base class default method raise the TypeError
-        return JSONEncoder.default(self, obj)
+        return JSONEncoder.default(self, o)
 
 class PipeNode(Command):
     NodeName = 'Pipe'
@@ -273,7 +277,7 @@ class NotNode(Command):
 
 class RedirNode(Command):
     NodeName = 'Redir'
-    line_number: [int, None] # bash has no line number for redir nodes
+    line_number: Optional[int] # bash has no line number for redir nodes
     node: Command
     redir_list: list
 
@@ -294,9 +298,9 @@ class RedirNode(Command):
 
 class BackgroundNode(Command):
     NodeName = 'Background'
-    line_number: [int, None]  # bash has no line number for background nodes
+    line_number: Optional[int]  # bash has no line number for background nodes
     node: Command
-    after_ampersand: Command # only used in bash
+    after_ampersand: Optional[Command] # only used in bash
     redir_list: list
     no_braces: bool
 
@@ -424,7 +428,7 @@ class IfNode(Command):
     NodeName = 'If'
     cond: Command
     then_b: Command
-    else_b: [Command, None]
+    else_b: Optional[Command]
 
     def __init__(self, cond, then_b, else_b):
         self.cond = cond
@@ -536,7 +540,7 @@ class EArgChar(ArgChar):
         if(self.char in non_escape_chars):
             return '{}'.format(chr(self.char))
         else:
-            return '\{}'.format(chr(self.char))
+            return '{}'.format(chr(self.char))
 
     def json(self):
         json_output = make_kv(EArgChar.NodeName,
@@ -591,6 +595,7 @@ class TArgChar(ArgChar):
                 assert(False)
         else:
             print ("Unexpected param for T: %s" % param)
+            assert(False)
 
 class AArgChar(ArgChar):
     NodeName = 'A'
@@ -734,13 +739,13 @@ class AssignNode(AstNode):
     
 class RedirectionNode(AstNode):
     redir_type: str
-    fd: (str, [list[ArgChar], int]) # either ('var', filename) or ('fixed', fd)
+    fd: FdType # either ('var', filename) or ('fixed', fd)
     pass
 
 class FileRedirNode(RedirectionNode):
     NodeName = "File"
     redir_type: str
-    fd: (str, [list[ArgChar], int]) # either ('var', filename) or ('fixed', fd)
+    fd: FdType # either ('var', filename) or ('fixed', fd)
     arg: "list[ArgChar]"
 
     def __init__(self, redir_type, fd, arg):
@@ -783,8 +788,8 @@ class FileRedirNode(RedirectionNode):
 class DupRedirNode(RedirectionNode):
     NodeName = "Dup"
     dup_type: str
-    fd: (str, [list[ArgChar], int]) # either ('var', filename) or ('fixed', fd)
-    arg: (str, [list[ArgChar], int]) # either ('var', filename) or ('fixed', fd)
+    fd: FdType # either ('var', filename) or ('fixed', fd)
+    arg: FdType # either ('var', filename) or ('fixed', fd)
     move: bool
 
     def __init__(self,
@@ -838,10 +843,10 @@ class DupRedirNode(RedirectionNode):
 class HeredocRedirNode(RedirectionNode):
     NodeName = "Heredoc"
     heredoc_type: str
-    fd: (str, [list[ArgChar], int])  # either ('var', filename) or ('fixed', fd)
+    fd: FdType  # either ('var', filename) or ('fixed', fd)
     arg: "list[ArgChar]"
     kill_leading: bool
-    eof: [str, None]
+    eof: Optional[str]
 
     def __init__(self, heredoc_type, fd, arg, kill_leading=False, eof=None):
         self.heredoc_type = heredoc_type
@@ -977,7 +982,7 @@ def ast_match(ast_node, cases, *args):
     return cases[type(ast_node).NodeName](*args)(ast_node)
 
 ## Util function
-def make_kv(key, val):
+def make_kv(key, val) -> list:
     return [key, val]
 
 
@@ -1049,9 +1054,9 @@ class CondNode(Command, BashNode):
     NodeName = 'Cond'
     line_number: int
     cond_type: CondType
-    op: [list[ArgChar], None]
-    left: [Command, None]
-    right: [Command, None]
+    op: Optional[list[ArgChar]]
+    left: Optional[Command]
+    right: Optional[Command]
     invert_return: bool
 
     def __init__(self, line_number, cond_type, op, left, right, invert_return):
@@ -1209,7 +1214,7 @@ class TimeNode(Command, BashNode):
 class SingleArgRedirNode(RedirectionNode, BashNode):
     NodeName = "SingleArg"
     redir_type: str
-    fd: (str, [list[ArgChar], int]) # Either ('var', filename) or ('fixed', fd)
+    fd: FdType # Either ('var', filename) or ('fixed', fd)
 
     def __init__(self, redir_type, fd):
         self.redir_type = redir_type
@@ -1236,9 +1241,10 @@ class SingleArgRedirNode(RedirectionNode, BashNode):
         elif subtype == "AppendErrAndOut":
             assert item[0] == 'var'
             return f"&>> {string_of_arg(item[1])}"
+        assert False
 
 
-def handle_redirvarassign(item: (str, [int, list[ArgChar]]), showFdUnless: [int, None]=None) -> str:
+def handle_redirvarassign(item: FdType, showFdUnless: Optional[int] = None) -> str:
     if item[0] == 'var':
         return "{" + string_of_arg(item[1]) + "}"
     else:
