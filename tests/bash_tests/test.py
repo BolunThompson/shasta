@@ -12,8 +12,6 @@ from shasta.ast_node import BASH_MODE
 # The file path to the bash-5.2/tests directory
 BASH_TESTS_DIR = os.path.join(os.path.dirname(__file__), "test_files")
 
-assert BASH_MODE
-
 def get_test_files() -> list[str]:
     """
     Gets all the test files in the test directory
