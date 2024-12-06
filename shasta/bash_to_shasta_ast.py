@@ -7,8 +7,6 @@ from .subst import expand_word
 
 IN_FUNCTION = False
 
-ast_node.BASH_MODE = True
-
 def is_empty_command(node: AstNode) -> bool:
     return node.NodeName == "CommandNode" and \
         len(node.arguments) == 0 and \
@@ -21,6 +19,7 @@ def to_ast_nodes(node_list: list[Command]) -> list[AstNode]:
 
 
 def to_ast_node(node: Command) -> AstNode:
+    ast_node.BASH_MODE = True
     node_type = node.type
 
     if node_type == CommandType.CM_FOR:
